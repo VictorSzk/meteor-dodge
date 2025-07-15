@@ -22,6 +22,7 @@ class Player:
         self.isAlive = True
         self.color = "green"
         self.controller = Controller()
+        self.speed = 400
         self.screen = pygame.display.get_surface()
         self.weights = weights
         self.brain = Brain(weights)
@@ -42,7 +43,8 @@ class Player:
 
     # For each direction, get the weight of closer meteor
     def sense(self, meteor_set: list[Meteor]):
-        perception = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        # Setting negative perception as base allows empty spaces to have some weight
+        perception = np.array([-.1, -.1, -.1, -.1, -.1, -.1, -.1, -.1, 0, 0])
 
         for meteor in meteor_set:
             idx = 0
@@ -54,11 +56,13 @@ class Player:
 
                 proj = pygame.Vector2.dot(sensor, delta)
                 # Check the closest sensor to the meteor cos(22.5deg) ~ 0.9239
-                sensation = 61.0/(proj+1) if 150 > proj > 0.9238*delta.magnitude() else 0
+                sensation = 61.0/(proj+1) if 150 > proj > 0.9238*delta.magnitude() else -.1
                 perception[idx] = np.max([sensation, perception[idx]]) 
                 idx += 1
-            perception[8] = (self.position.x - 640)/640
-            perception[9] = (self.position.y - 320)/320
+
+            # Last two sensors to the borders
+            perception[8] = ((self.position.x - 640)/540)**3
+            perception[9] = ((self.position.y - 360)/260)**3
         self.perception = perception
 
     def get_new_pos(self, keys, dt):
@@ -68,8 +72,8 @@ class Player:
     
     def move(self, dt):
         x,y = self.brain.thought(self.perception)
-        self.position.y += y * 300 * dt
-        self.position.x += x * 300 * dt
+        self.position.y += y * self.speed * dt
+        self.position.x += x * self.speed * dt
 
 
         

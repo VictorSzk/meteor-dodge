@@ -46,10 +46,11 @@ black circles that can destroy the player on touch
 """
 
 class Game:
-    def __init__(self):
+    def __init__(self, population):
         self.timer: float = 0
         self.generation: int = 1
-        self.players: list[Player] = [Player(PLAYER_POS.copy(), random_weight()) for _ in range(8)]
+        self.population = population
+        self.players: list[Player] = [Player(PLAYER_POS.copy(), random_weight()) for _ in range(population)]
 
     def startGame(self):
         self.timer = 0
@@ -64,18 +65,6 @@ class Game:
         # Motion area for player
         pygame.draw.rect(screen, "cyan", pygame.Rect(100,100,1080, 520))
 
-        text = font.render(f'Generation: {self.generation}', True, green, blue)
-        textRect = text.get_rect()
-        textRect.topleft = (0, 0)
-        
-        screen.blit(text, textRect)
-
-
-        text = font.render(f'player pos: {PLAYER_POS}', True, green, blue)
-        textRect = text.get_rect()
-        textRect.topleft = (0, 300)
-        
-        screen.blit(text, textRect)
 
         # Spawn random circle
 
@@ -97,9 +86,15 @@ class Game:
 
         all_alive = False
 
+
+        text = font.render(f'Generation: {self.generation}', True, green, blue)
+        textRect = text.get_rect()
+        textRect.topleft = (0, 0)
+        screen.blit(text, textRect)
+
         for player in self.players:
             # Print lifetime of each player
-            text = font.render(f'Player {idx+1}: {player.lifetime:.3f}', True, green, blue)
+            text = font.render(f'Player {idx+1}: {player.lifetime:.3f}', True, player.color, blue)
             textRect = text.get_rect()
             textRect.topleft = (0, 20*(idx+1))
             screen.blit(text, textRect)
@@ -108,6 +103,8 @@ class Game:
             all_alive = all_alive or player.isAlive
 
         if not all_alive: self.startGame()
+
+
         # flip() the display to put your work on screen
         pygame.display.flip()
 
@@ -127,11 +124,11 @@ class Game:
         mutation = math.floor(max_lifetime/5)
         winner_weight = self.players[max_idx].weights
         self.players.clear()
-        self.players = [Player(PLAYER_POS.copy(), random_new_weight(winner_weight, 0.90**(mutation))) for _ in range(8)]
+        self.players = [Player(PLAYER_POS.copy(), winner_weight)] + [Player(PLAYER_POS.copy(), random_new_weight(winner_weight, 0.90**(mutation))) for _ in range(self.population-1)]
 
 
 
-game = Game()
+game = Game(16)
 
 while running:
     # poll for events

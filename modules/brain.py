@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 class Weights:
     def __init__(self, weights_x, weights_y):
@@ -8,9 +9,11 @@ class Weights:
 class Brain:
     def __init__(self, weights):
         self.weights = weights
+        self.movements = lambda x: (1-math.exp(-x))/(1+math.exp(-x))
 
     def thought(self, inputs):
         X = np.dot(inputs, self.weights.x)
         Y = np.dot(inputs, self.weights.y)
-        return X,Y
+
+        return self.movements(X),self.movements(Y)
 

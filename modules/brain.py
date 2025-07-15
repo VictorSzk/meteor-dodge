@@ -1,5 +1,10 @@
 import numpy as np
 
+class Weights:
+    def __init__(self, weights_x, weights_y):
+        self.x = weights_x
+        self.y = weights_y
+
 class Brain:
     def __init__(self, weights):
         self.weights = weights

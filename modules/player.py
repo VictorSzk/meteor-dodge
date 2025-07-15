@@ -6,26 +6,27 @@ from .controller import Controller
 from .brain import Brain
 
 E = pygame.Vector2(1, 0)
-NE = pygame.Vector2(0.707, 0.707)
-N = pygame.Vector2(0, 1)
-NW = pygame.Vector2(-0.707, 0.707)
-W = pygame.Vector2(-1, 0)
-SW = pygame.Vector2(-0.707, -0.707)
-S = pygame.Vector2(0, -1)
-SE = pygame.Vector2(0.707, -0.707)
+NE = pygame.Vector2(0.707, -0.707)
+N = pygame.Vector2(0, -1)
+NW = pygame.Vector2(-0.707, -0.707)
+W = pygame.Vector2(-1, -0)
+SW = pygame.Vector2(-0.707, 0.707)
+S = pygame.Vector2(0, 1)
+SE = pygame.Vector2(0.707, 0.707)
 
 class Player:
     
-    def __init__(self, pos):
+    def __init__(self, pos, weights):
         self.position = pos
         self.lifetime = 0
         self.isAlive = True
         self.color = "green"
         self.controller = Controller()
         self.screen = pygame.display.get_surface()
-        # self.brain = Brain(weights)
+        self.weights = weights
+        self.brain = Brain(weights)
         self.sensors = [E, NE, N, NW, W, SW, S, SE]
-        self.perception = np.array([0, 0, 0, 0, 0, 0, 0, 0])
+        self.perception = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 
     def update(self, dt, keys):
         if (self.position.x > 1160 or self.position.x < 120): self.isAlive = False
@@ -33,7 +34,7 @@ class Player:
 
         if self.isAlive: 
             self.lifetime += dt
-            self.get_new_pos(keys, dt)
+            self.move(dt)
         else:
             self.color = "red"
 
@@ -41,7 +42,7 @@ class Player:
 
     # For each direction, get the weight of closer meteor
     def sense(self, meteor_set: list[Meteor]):
-        perception = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        perception = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
         for meteor in meteor_set:
             idx = 0
@@ -53,9 +54,11 @@ class Player:
 
                 proj = pygame.Vector2.dot(sensor, delta)
                 # Check the closest sensor to the meteor cos(22.5deg) ~ 0.9239
-                # perception[idx] = np.min([1000/(proj + 1), perception[idx]])
-                perception[idx] = np.max([1000/delta.magnitude(), perception[idx]])
+                sensation = 61.0/(proj+1) if 150 > proj > 0.9238*delta.magnitude() else 0
+                perception[idx] = np.max([sensation, perception[idx]]) 
                 idx += 1
+            perception[8] = (self.position.x - 640)/640
+            perception[9] = (self.position.y - 320)/320
         self.perception = perception
 
     def get_new_pos(self, keys, dt):

@@ -1,9 +1,11 @@
 # Example file showing a circle moving on screen
 import pygame
 import numpy as np
+import random
+import math
 from modules.player import Player
 from modules.meteor_spawn import MeteorSpawner
-
+from modules.brain import Weights
 
 # pygame setup
 pygame.init()
@@ -15,9 +17,18 @@ dt = 0
 timer = 0
 # meteor_list: list[Meteor] = []
 
-player_pos = pygame.Vector2(screen.get_width() / 2, screen.get_height() / 2)
+PLAYER_POS = pygame.Vector2(640, 360)
 
-player = Player(player_pos)
+def random_weight():
+    return Weights([random.uniform(-2,2) for _ in range(10)], [random.uniform(-2,2) for _ in range(10)])
+
+def random_new_weight(weight: Weights, growth: float):
+
+    bias = np.array([0,0,0,0,0,0,0,0,-0.1,-0.1])
+    new_x = np.add(weight.x, [random.gauss(0,growth) for _ in range(10)])
+    new_y = np.add(weight.y, [random.gauss(0,growth) for _ in range(10)])
+    return Weights(new_x, new_y)
+
 
 font = pygame.font.Font('freesansbold.ttf', 12)
 
@@ -29,8 +40,6 @@ white = (255, 255, 255)
 green = (0, 255, 0)
 blue = (0, 0, 128)
 
-weights = [{'x': np.array([0]*8), 'y': np.array([0]*8)}] * 8
-
 """
 This game is a simples meteor dodge, control the red circle to avoid rogue 
 black circles that can destroy the player on touch
@@ -39,42 +48,66 @@ black circles that can destroy the player on touch
 class Game:
     def __init__(self):
         self.timer: float = 0
-        self.generation: int = 0
-        # self.players: list[Player] = []
+        self.generation: int = 1
+        self.players: list[Player] = [Player(PLAYER_POS.copy(), random_weight()) for _ in range(8)]
 
-    def startGame(self, weights):
+    def startGame(self):
         self.timer = 0
+        self.generation += 1
+        meteor_spawner.clean()
+        self.get_new_generation()
 
-    def update(self):
+    def update(self, dt):
+
+        screen.fill("purple")
 
         # Motion area for player
         pygame.draw.rect(screen, "cyan", pygame.Rect(100,100,1080, 520))
 
-        text = font.render(f'lifetime: {player.lifetime}', True, green, blue)
+        text = font.render(f'Generation: {self.generation}', True, green, blue)
         textRect = text.get_rect()
         textRect.topleft = (0, 0)
         
         screen.blit(text, textRect)
 
 
-        timer += dt
-
-        keys = pygame.key.get_pressed()
-        player.update(dt, keys)
-
+        text = font.render(f'player pos: {PLAYER_POS}', True, green, blue)
+        textRect = text.get_rect()
+        textRect.topleft = (0, 300)
+        
+        screen.blit(text, textRect)
 
         # Spawn random circle
 
-        meteor_spawner.update(player.position, dt)
 
-        # Check collision with player
+        self.timer += dt
 
-        for x in meteor_spawner.meteor_set:
-            dist = (x.pos - player.position).magnitude_squared()
-            if dist < 3600:
-                player.isAlive = False
-                pass
+        keys = pygame.key.get_pressed()
 
+        for player in self.players:
+            
+
+            player.update(dt, keys)
+
+            player.sense(meteor_spawner.meteor_set)
+
+        meteor_spawner.update(pygame.Vector2(PLAYER_POS), dt)
+
+        idx = 0
+
+        all_alive = False
+
+        for player in self.players:
+            # Print lifetime of each player
+            text = font.render(f'Player {idx+1}: {player.lifetime:.3f}', True, green, blue)
+            textRect = text.get_rect()
+            textRect.topleft = (0, 20*(idx+1))
+            screen.blit(text, textRect)
+            idx+=1
+
+            all_alive = all_alive or player.isAlive
+
+        if not all_alive: self.startGame()
         # flip() the display to put your work on screen
         pygame.display.flip()
 
@@ -83,6 +116,23 @@ class Game:
         # independent physics.
         dt = clock.tick(60) / 1000
 
+    def get_new_generation(self):
+        max_idx = 0
+        max_lifetime = 0
+        for i in range(8):
+            if self.players[i].lifetime >= max_lifetime:
+                max_lifetime = self.players[i].lifetime
+                max_idx = i
+            
+        mutation = math.floor(max_lifetime/5)
+        winner_weight = self.players[max_idx].weights
+        self.players.clear()
+        self.players = [Player(PLAYER_POS.copy(), random_new_weight(winner_weight, 0.90**(mutation))) for _ in range(8)]
+
+
+
+game = Game()
+
 while running:
     # poll for events
     # pygame.QUIT event means the user clicked X to close your window
@@ -90,34 +140,36 @@ while running:
         if event.type == pygame.QUIT:
             running = False
 
+    game.update(dt)
+
     # fill the screen with a color to wipe away anything from last frame
-    screen.fill("purple")
+    # screen.fill("purple")
 
     # Motion area for player
-    pygame.draw.rect(screen, "cyan", pygame.Rect(100,100,1080, 520))
+    # pygame.draw.rect(screen, "cyan", pygame.Rect(100,100,1080, 520))
 
-    text = font.render(f"lifetime: {player.lifetime}",True, green, blue)
-    textRect = text.get_rect()
-    textRect.topleft = (0, 0)
-    screen.blit(text, textRect)
+    
+    ## Checking if perception is working as intended
+    # idx = 0
+    # for direction in ["E", "NE", "N", "NW", "W", "SW", "S", "SE"]:
+    #     text = font.render(f"{direction}: {player.perception[idx]:.3f}",True, green, blue)
+    #     textRect = text.get_rect()
+    #     textRect.topleft = (0, 20*(idx+1))
+    #     screen.blit(text, textRect)
+    #     idx+=1
 
-    text = font.render(f"sensors: {player.perception}",True, green, blue)
-    textRect = text.get_rect()
-    textRect.topleft = (0, 20)
-    screen.blit(text, textRect)
 
+    # timer += dt
 
-    timer += dt
-
-    keys = pygame.key.get_pressed()
-    player.update(dt, keys)
+    # keys = pygame.key.get_pressed()
+    # player.update(dt, keys)
 
 
     # Spawn random circle
 
-    meteor_spawner.update(player.position, dt)
+    # meteor_spawner.update(player.position, dt)
 
-    player.sense(meteor_spawner.meteor_set)
+    # player.sense(meteor_spawner.meteor_set)
 
     # flip() the display to put your work on screen
     pygame.display.flip()
